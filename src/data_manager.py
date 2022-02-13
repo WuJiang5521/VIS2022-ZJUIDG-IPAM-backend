@@ -1,23 +1,5 @@
-import imp
-
-
 import os
-from typing import List, Tuple
-from pydantic import BaseModel
 
-class MatchInfo(BaseModel):
-    name: str
-    players: Tuple[str, str]
-    sequenceCount: int
-
-class Dataset(BaseModel):
-    name: str
-    matches: List[MatchInfo]
-
-class SequenceFilter(BaseModel):
-    dataset: str
-    player: str
-    opponents: List[str]
 
 class DataManager:
     def __init__(self):
@@ -46,5 +28,6 @@ class DataManager:
 
     def get_datasets(self):
         return self.datasets
+
 
 data_manager = DataManager()
