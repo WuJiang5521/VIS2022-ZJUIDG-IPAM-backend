@@ -18,6 +18,6 @@ class Tactic(BaseModel):
     usage_count: int  # 该战术用了多少次（如果一个回合多次使用，记多次）
     win_usage_count: int  # 使用该战术，多少次赢了（同上）
 
-    # 投影
+    # 投影，0~1
     x: float
     y: float
