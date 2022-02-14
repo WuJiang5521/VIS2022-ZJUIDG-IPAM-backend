@@ -21,3 +21,6 @@ class Tactic(BaseModel):
     # 投影，0~1
     x: float
     y: float
+
+    # fix
+    fix: bool
