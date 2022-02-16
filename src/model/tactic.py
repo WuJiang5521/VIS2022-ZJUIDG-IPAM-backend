@@ -1,3 +1,5 @@
+from typing import List
+
 from pydantic import BaseModel
 
 
@@ -21,3 +23,8 @@ class Tactic(BaseModel):
     # 投影，0~1
     x: float
     y: float
+
+
+class TacticSet(BaseModel):
+    tactics: List[Tactic]
+    desc_len: int

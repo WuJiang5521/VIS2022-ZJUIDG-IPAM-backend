@@ -5,6 +5,7 @@ from starlette.responses import StreamingResponse, JSONResponse
 
 from src.data_manager import data_manager
 from src.model import DatasetInfo, SequenceFilter, Tactic, Rally, RallyDetail, Modification
+from src.model.tactic import TacticSet
 from src.utils import gen_token, video_file
 from src.utils.token import auth_required, get_token_from_request
 
@@ -53,7 +54,7 @@ async def set_dataset(request: Request, sequence_filter: SequenceFilter):
 
 
 # 4. 运算
-@app.post('/tactic', response_model=List[Tactic])
+@app.post('/tactic', response_model=TacticSet)
 @auth_required
 async def cal_tactic(request: Request):
     token = get_token_from_request(request)
@@ -94,7 +95,7 @@ async def process_text(request: Request, text: str):
 
 
 # 8. 增加修改
-@app.post('/modification', response_model=List[Tactic])
+@app.post('/modification', response_model=TacticSet)
 @auth_required
 async def cal_tactic(request: Request, modication: Modification):
     token = get_token_from_request(request)
