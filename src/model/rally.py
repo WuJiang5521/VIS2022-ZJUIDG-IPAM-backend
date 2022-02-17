@@ -2,19 +2,12 @@ from typing import List, Tuple
 
 from pydantic import BaseModel
 
-
-class Value(BaseModel):
-    num_value: int  # id value used in alg
-    name: str
-    attr: str
-
-
-Hit = List[Value]
+from src.model.hit import HitWithoutFrequency
 
 
 class RallyDetail(BaseModel):
     attr: List[str]
-    hits: List[Hit]
+    hits: List[HitWithoutFrequency]
 
 
 class Rally(BaseModel):
