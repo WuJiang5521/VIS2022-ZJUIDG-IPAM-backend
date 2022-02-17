@@ -11,6 +11,7 @@ class MatchInfo(BaseModel):
 class DatasetInfo(BaseModel):
     name: str
     matches: List[MatchInfo]
+    attrs: List[str]
 
 
 class SequenceFilter(BaseModel):

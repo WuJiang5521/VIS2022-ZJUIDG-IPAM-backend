@@ -2,17 +2,7 @@ from typing import List, Dict, Tuple, Union
 
 from pydantic import BaseModel
 
-from src.model.hit import Hit, HitWithoutFrequency, HitWithFrequency
-
-
-class TacticDetail(BaseModel):
-    attr: List[str]
-    hits: List[HitWithoutFrequency]  # some attr may be omitted
-
-
-class TacticDetailWithFrequency(BaseModel):
-    attr: List[str]
-    hits: List[HitWithFrequency]
+from src.model.hit import HitWithoutFrequency, HitWithFrequency
 
 
 class Tactic(BaseModel):
@@ -20,8 +10,8 @@ class Tactic(BaseModel):
     id: str  # gen by str(uuid4())
 
     # 具体战术
-    tactic: TacticDetail  # 如果是数组，这里可以改成List[HitDetail]
-    tactic_surrounding: TacticDetailWithFrequency
+    tactic: List[HitWithoutFrequency]  # 如果是数组，这里可以改成List[HitDetail]
+    tactic_surrounding: List[HitWithFrequency]
 
     # 使用统计
     seq_count: int  # 多少个回合使用了该战术（如果一个回合多次使用，只记一次）

@@ -4,11 +4,13 @@ from pydantic import BaseModel
 
 
 class Value(BaseModel):
-    attr: str
     num_value: int
     name: str
 
 
-class FreqValue(BaseModel):
-    attr: str
-    value: Dict[str, Tuple[int, int]]  # {name: (num_value, freq)}
+class Freq(BaseModel):
+    num_value: int
+    freq: int
+
+
+FreqValue = Dict[str, Freq]  # {name: (num_value, freq)}

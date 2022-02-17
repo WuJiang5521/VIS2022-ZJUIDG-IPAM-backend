@@ -4,8 +4,15 @@ from pydantic import BaseModel
 
 from src.model.value import Value, FreqValue
 
-Hit = List[Union[Value, FreqValue]]
 
-HitWithFrequency = List[FreqValue]
+Hit = List[Union[Value, FreqValue, None]]
 
-HitWithoutFrequency = List[Value]
+HitWithFrequency = List[Union[FreqValue, None]]
+
+HitWithoutFrequency = List[Union[Value, None]]
+
+HitNoNone = List[Union[Value, FreqValue]]
+
+HitWithFrequencyNoNone = List[FreqValue]
+
+HitWithoutFrequencyNoNone = List[Value]
