@@ -1,10 +1,26 @@
-from typing import List
+from typing import List, Dict, Tuple
 
 from pydantic import BaseModel
 
+from src.model.rally import Hit
+
+
+class ProbValue(BaseModel):
+    attr: str
+    value: Dict[str, Tuple[int, float]]  # {name: (num_value, prob)}
+
+
+ProbHit = List[ProbValue]
+
 
 class TacticDetail(BaseModel):
-    pass
+    attr: List[str]
+    hits: List[Hit]  # some attr may be omitted
+
+
+class TacticDetailWithProbability(BaseModel):
+    attr: List[str]
+    hits: List[ProbHit]
 
 
 class Tactic(BaseModel):
@@ -13,6 +29,7 @@ class Tactic(BaseModel):
 
     # TODO: 具体战术
     tactic: TacticDetail  # 如果是数组，这里可以改成List[HitDetail]
+    tactic_surrounding: TacticDetailWithProbability
 
     # 使用统计
     seq_count: int  # 多少个回合使用了该战术（如果一个回合多次使用，只记一次）

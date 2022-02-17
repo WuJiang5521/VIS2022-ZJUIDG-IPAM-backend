@@ -1,9 +1,15 @@
-from typing import List
+from typing import List, Tuple
 
 from pydantic import BaseModel
 
 
-Hit = List[str]
+class Value(BaseModel):
+    num_value: int  # id value used in alg
+    name: str
+    attr: str
+
+
+Hit = List[Value]
 
 
 class RallyDetail(BaseModel):
@@ -18,7 +24,9 @@ class Rally(BaseModel):
     hit_count: int  # 总共多少拍
 
     # 战术信息
-    index: int  # 战术是从第几拍开始用的
+    index: List[Tuple[int, int]]  # 战术是从第几拍开始用的 [(tactic_id, index_in_rally)]
+
+    rally: RallyDetail
 
     # 比赛信息，如果没有就随便填个
     match_name: str  # 比赛名
