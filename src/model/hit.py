@@ -1,7 +1,5 @@
 from typing import List, Union
 
-from pydantic import BaseModel
-
 from src.model.value import Value, FreqValue
 
 
