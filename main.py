@@ -4,8 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse, JSONResponse
 
 from src.data_manager import data_manager
-from src.model import DatasetInfo, SequenceFilter, Tactic, Rally, RallyDetail, Modification
-from src.model.tactic import TacticSet
+from src.model import DatasetInfo, SequenceFilter, TacticSet, Rally, Modification
 from src.utils import gen_token, video_file
 from src.utils.token import auth_required, get_token_from_request
 
@@ -74,16 +73,16 @@ async def get_rally(request: Request, tac_id: str):
 
 
 # 6. 获取回合细节
-@app.get('/rally/detail/<rally_id>', response_model=RallyDetail)
-@auth_required
-async def get_rally(request: Request, rally_id: int):
-    token = get_token_from_request(request)
-    # TODO: return rallies that used the tactic with id `tac_id`
-    detail = {
-        "attr": [],
-        "hits": [],
-    }
-    return detail
+# @app.get('/rally/detail/<rally_id>', response_model=RallyDetail)
+# @auth_required
+# async def get_rally(request: Request, rally_id: int):
+#     token = get_token_from_request(request)
+#     # TODO: return rallies that used the tactic with id `tac_id`
+#     detail = {
+#         "attr": [],
+#         "hits": [],
+#     }
+#     return detail
 
 
 # 7. 文本处理
