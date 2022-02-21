@@ -58,12 +58,15 @@ async def set_dataset(request: Request, sequence_filter: SequenceFilter):
 async def cal_tactic(request: Request):
     token = get_token_from_request(request)
     # TODO: calculate tactics
-    tactics = []
+    tactics = {
+        'tactics': [],
+        'desc_len': 0,
+    }
     return tactics
 
 
 # 5. 获取回合
-@app.get('/rally/<tac_id>', response_model=List[Rally])
+@app.get('/rally/{tac_id}', response_model=List[Rally])
 @auth_required
 async def get_rally(request: Request, tac_id: str):
     token = get_token_from_request(request)
@@ -73,7 +76,7 @@ async def get_rally(request: Request, tac_id: str):
 
 
 # 6. 获取回合细节
-# @app.get('/rally/detail/<rally_id>', response_model=RallyDetail)
+# @app.get('/rally/detail/{rally_id}', response_model=RallyDetail)
 # @auth_required
 # async def get_rally(request: Request, rally_id: int):
 #     token = get_token_from_request(request)
@@ -86,9 +89,9 @@ async def get_rally(request: Request, tac_id: str):
 
 
 # 7. 文本处理
-@app.get('/text/<text>', response_model=Optional[Modification])
+@app.get('/text/{t}', response_model=Optional[Modification])
 @auth_required
-async def process_text(request: Request, text: str):
+async def process_text(request: Request, t: str):
     # TODO: 返回文本处理结果
     return None
 
@@ -113,7 +116,7 @@ async def cal_tactic(request: Request):
 
 
 # 10. 是否固定战术
-@app.put('/tactic/preference/<tac_id>', response_model=bool)
+@app.put('/tactic/preference/{tac_id}', response_model=bool)
 @auth_required
 async def fix_tactic(request: Request, tac_id: str, preference: bool):
     token = get_token_from_request(request)
@@ -122,7 +125,7 @@ async def fix_tactic(request: Request, tac_id: str, preference: bool):
 
 
 # 11. 视频
-@app.get('/video/<video_name>')
+@app.get('/video/{video_name}')
 def get_video(video_name: str):
     try:
         return StreamingResponse(video_file(video_name), media_type="video/mp4")

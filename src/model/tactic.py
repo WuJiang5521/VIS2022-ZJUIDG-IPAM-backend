@@ -10,6 +10,7 @@ class Tactic(BaseModel):
     id: str  # gen by str(uuid4())
 
     # 具体战术
+    user: int  # tactic第一拍的击球方，0或1
     tactic: List[HitWithoutFrequency]  # 如果是数组，这里可以改成List[HitDetail]
     tactic_surrounding: List[HitWithFrequency]
 
