@@ -5,13 +5,21 @@ from pydantic import BaseModel
 from src.model.hit import HitWithoutFrequency, HitWithFrequency
 
 
+class TacticDetail(BaseModel):
+    hits: List[HitWithoutFrequency]
+
+
+class TacticSurroundingDetail(BaseModel):
+    hits: List[HitWithFrequency]
+
+
 class Tactic(BaseModel):
     # 唯一表示
     id: str  # gen by str(uuid4())
 
     # 具体战术
-    tactic: List[HitWithoutFrequency]  # 如果是数组，这里可以改成List[HitDetail]
-    tactic_surrounding: List[HitWithFrequency]
+    tactic: TacticDetail  # 如果是数组，这里可以改成List[HitDetail]
+    tactic_surrounding: TacticSurroundingDetail
 
     # 使用统计
     seq_count: int  # 多少个回合使用了该战术（如果一个回合多次使用，只记一次）
