@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple, Union
+from typing import List, Tuple, Union
 
 from pydantic import BaseModel
 
@@ -18,6 +18,7 @@ class Tactic(BaseModel):
     id: str  # gen by str(uuid4())
 
     # 具体战术
+    user: int  # tactic第一拍的击球方，0或1
     tactic: TacticDetail  # 如果是数组，这里可以改成List[HitDetail]
     tactic_surrounding: TacticSurroundingDetail
 
@@ -32,7 +33,7 @@ class Tactic(BaseModel):
     y: float
 
     # 回合序号
-    index: List[Tuple[int, Union[int, List[int]]]]  # [(rally_id, index_in_rally)] or [(rally_id, [index_in_rally])]
+    index: List[Tuple[int, List[int]]]  # [(rally_id, index_in_rally)] or [(rally_id, [index_in_rally])]
 
 
 class TacticSet(BaseModel):

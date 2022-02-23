@@ -1,7 +1,4 @@
-from typing import Tuple, Dict
-
-from pydantic import BaseModel
-
+from typing import Dict
 
 Value = str
 

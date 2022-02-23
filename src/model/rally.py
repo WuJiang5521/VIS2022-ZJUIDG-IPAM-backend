@@ -16,7 +16,7 @@ class Rally(BaseModel):
     hit_count: int  # 总共多少拍
 
     # 战术信息
-    index: List[Tuple[int, int]]  # 战术是从第几拍开始用的 [(tactic_id, index_in_rally)]
+    index: List[Tuple[str, int]]  # 战术是从第几拍开始用的 [(tactic_id, index_in_rally)]
 
     rally: RallyDetail
 

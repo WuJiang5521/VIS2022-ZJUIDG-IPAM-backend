@@ -10,7 +10,10 @@ class DataManager:
     def __reload_dataset(self, folder):
         path = os.path.join(self.datasets_path, folder)
         matches = []
+        attrs = []
         for file in os.listdir(path):
+            # TODO: setup attrs
+            attrs = ['Ball Height', 'Ball Position', 'Hit Technique']
             matches.append({
                 'name': file.split('.')[0],
                 'players': ('a', 'b'),
@@ -18,7 +21,8 @@ class DataManager:
             })
         return {
             "name": folder,
-            "matches": matches
+            "matches": matches,
+            "attrs": attrs,
         }
 
     def __reload_datasets(self):
