@@ -9,4 +9,4 @@ from .hit import \
     HitWithFrequency, \
     HitWithoutFrequency
 from .value import Value, FreqValue
-from .modification import Modification
+from .modification import Modification, global_modification_types, local_modification_types

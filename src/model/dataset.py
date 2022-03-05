@@ -1,10 +1,10 @@
-from typing import List, Tuple
+from typing import List, Tuple, Union
 from pydantic import BaseModel
 
 
 class MatchInfo(BaseModel):
     name: str
-    players: Tuple[str, str]
+    players: Tuple[Union[Tuple[str], Tuple[str, str]], Union[Tuple[str], Tuple[str, str]]]  # 双打或单打
     sequenceCount: int
 
 

@@ -44,7 +44,7 @@ all_modification_types = [
             },
             {
                 "type": 'Split',  # 拆分
-                "params": ['index', 'attr', 'value'],  # 战术id，根据属性拆分，根据值拆分（最后两个二选一）
+                "params": ['index', 'attr', 'hit'],  # 战术id，根据属性拆分，根据值拆分（最后两个二选一）
             },
             {
                 "type": 'Merge',  # 合并
@@ -83,3 +83,7 @@ all_modification_types = [
         ]
     }
 ]
+
+global_modification_types = ['LimitIndex', 'LimitLength', 'SetExistence', 'SetImportance']
+
+local_modification_types = ['Delete', 'Split', 'Merge', 'Increment', 'Decrement', 'Replace', 'Ignore', 'Explore']

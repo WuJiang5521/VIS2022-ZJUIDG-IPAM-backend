@@ -1,13 +1,20 @@
+import os.path
+from copy import deepcopy
 from typing import List, Optional
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse, JSONResponse
 
 from src.data_manager import data_manager
-from src.model import DatasetInfo, SequenceFilter, TacticSet, Rally, Modification
+from src.mine_alg_interface import MineAlgInterface
+from src.model import DatasetInfo, SequenceFilter, TacticSet, Rally, Modification, global_modification_types
 from src.model.rally import RallyDetail
+from src.tactic_dimensionality_reducer import TacticDimensionalityReducer
 from src.utils import gen_token, video_file
+from src.utils.common import *
 from src.utils.token import auth_required, get_token_from_request
+from src.utils.utils import GlobalConstrains, TimeSpot, find_tactic_id, find_tactic, split_tactic, merge_tactic, \
+    increment_hit, decrement_hit, modify_value
 
 app = FastAPI()
 
@@ -34,7 +41,7 @@ async def root():
 @app.get('/token', response_model=str)
 async def get_token():
     token = gen_token()
-    # TODO：可能需要在这里根据token初始化一些数据结构
+    data_manager.init_token(token)
     return token
 
 
@@ -49,7 +56,8 @@ async def get_datasets():
 @auth_required
 async def set_dataset(request: Request, sequence_filter: SequenceFilter):
     token = get_token_from_request(request)
-    # TODO: filter dataset and store it with token
+    new_metadata = data_manager.filter_matches(sequence_filter)
+    data_manager.update_metadata(token, new_metadata)
     return True
 
 
@@ -58,11 +66,32 @@ async def set_dataset(request: Request, sequence_filter: SequenceFilter):
 @auth_required
 async def cal_tactic(request: Request):
     token = get_token_from_request(request)
-    # TODO: calculate tactics
-    tactics = {
-        'tactics': [],
-        'desc_len': 0,
-    }
+    metadata = data_manager.get_metadata(token)
+    preference_tactics = data_manager.get_preference_tactics(token)
+    global_constrains = GlobalConstrains()
+
+    mine_alg_pickle_path = os.path.join(DATA_DIR, metadata['store_dir'], metadata['store_dir'] + '.pkl')
+    mine_alg_interface = MineAlgInterface(**metadata, token=token)
+    mine_alg_interface.reset_version()
+    mine_alg_interface.data_preprocess()
+    mine_alg_interface.run(global_constrains)
+
+
+    rallies = mine_alg_interface.get_rallies()
+    tactics = mine_alg_interface.get_tactics()
+    desc_len = tactics['desc_len']
+
+    tactic_dim_reducer_bin_dir = os.path.join(DATA_DIR, metadata['store_dir'])
+    tactic_dim_reducer = TacticDimensionalityReducer.load(tactic_dim_reducer_bin_dir)
+    coordinates = tactic_dim_reducer.fit_transform(tactics)
+    tactic_dim_reducer.save(tactic_dim_reducer_bin_dir)
+
+    tactics = TacticSet.load(tactics, rallies, coordinates, desc_len, preference_tactics)
+    data_manager.update_tactic_set(token, tactics)
+    data_manager.update_global_constrains(token, global_constrains)
+    data_manager.update_timeline(token, TimeSpot.InitRun, -1)
+    mine_alg_interface.update_version()
+    mine_alg_interface.save(mine_alg_pickle_path)
     return tactics
 
 
@@ -71,8 +100,18 @@ async def cal_tactic(request: Request):
 @auth_required
 async def get_rally(request: Request, tac_id: str):
     token = get_token_from_request(request)
-    # TODO: return rallies that used the tactic with id `tac_id`
-    rallies = []
+    metadata = data_manager.get_metadata(token)
+
+    mine_alg_pickle_path = os.path.join(DATA_DIR, metadata['store_dir'], metadata['store_dir'] + '.pkl')
+    mine_alg_interface = MineAlgInterface.load(mine_alg_pickle_path,
+                                               params={**metadata, 'token': token})
+
+    tactic_set = data_manager.get_tactic_set(token)
+
+    rallies = mine_alg_interface.get_rallies()
+    tactics = mine_alg_interface.get_tactics()
+
+    rallies = Rally.find_for_tactic(tac_id, tactic_set, tactics, rallies)
     return rallies
 
 
@@ -100,10 +139,192 @@ async def process_text(request: Request, t: str):
 # 8. 增加修改
 @app.post('/modification', response_model=TacticSet)
 @auth_required
-async def cal_tactic(request: Request, modication: Modification):
+async def cal_tactic(request: Request, modification: Modification):
     token = get_token_from_request(request)
-    # TODO: calculate tactics
-    tactics = []
+    metadata = data_manager.get_metadata(token)
+    global_constrains = deepcopy(data_manager.get_global_constrains(token))
+    preference_tactics = data_manager.get_preference_tactics(token)
+    mine_alg_pickle_path = os.path.join(DATA_DIR, metadata['store_dir'], metadata['store_dir'] + '.pkl')
+    mine_alg_interface = MineAlgInterface.load(mine_alg_pickle_path,
+                                               params={**metadata, 'token': token})
+    old_tactics = mine_alg_interface.get_tactics()
+    old_rallies = mine_alg_interface.get_rallies()
+    tactic_set = data_manager.get_tactic_set(token)
+    mine_alg_interface.set_new_store_path()
+    mine_alg_interface.data_preprocess()
+
+    delete_tactics_id = []
+    insert_tactics = []
+    # TacticSet
+    if modification.type == 'LimitIndex':
+        global_constrains.set_pattern_window_index_range(
+            modification.params['min'] if 'min' in modification.params else global_constrains.index_min,
+            modification.params['max'] if 'max' in modification.params else global_constrains.index_max)
+    elif modification.type == 'LimitLength':
+        global_constrains.set_pattern_length_range(
+            modification.params['min'] if 'min' in modification.params else global_constrains.length_min,
+            modification.params['max'] if 'max' in modification.params else global_constrains.length_max)
+        if 'offset' in modification.params:
+            global_constrains.update_pattern_length_range(modification.params['offset'])
+    # Attribute
+    elif modification.type == 'SetExistence':
+        if 'attr' not in modification.params:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "[Modification]Attribute set existence: no attribute passed."}
+            )
+        exist = modification.params['exist'] if 'exist' in modification.params else False
+        attributes = metadata["attributes"]
+        attr_id = [i for i in range(len(attributes)) if attributes[i] == modification.params['attr']][0]
+        global_constrains.set_exist_attribute(attr_id, exist)
+    elif modification.type == 'SetImportance':
+        if 'attr' not in modification.params:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "[Modification]Attribute set importance: no attribute passed."}
+            )
+        # TODO: normalize the importance in [0,10]
+        attributes = metadata["attributes"]
+        attr_id = [i for i in range(len(attributes)) if attributes[i] == modification.params['attr']][0]
+        global_constrains.set_attr_use(attr_id, modification.params['importance'])
+    elif modification.type == 'Delete':
+        if 'index' not in modification.params:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "[Modification]Tactic delete: no tactic index passed."}
+            )
+        tactic_id = find_tactic_id(old_tactics, tactic_set, modification.params['index'])
+        if isinstance(tactic_id, list):
+            delete_tactics_id = tactic_id
+        else:
+            delete_tactics_id.append(tactic_id)
+    elif modification.type == 'Split':
+        if 'index' not in modification.params:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "[Modification]Tactic split: no tactic index passed."}
+            )
+        tactic_id = find_tactic_id(old_tactics, tactic_set, modification.params['index'])
+        delete_tactics_id.append(tactic_id)
+        tactic = find_tactic(tactic_set, modification.params['index'])
+        tactic_surrounding = tactic.tactic_surrounding
+        attr_id = -1
+        if 'attr' in modification.params:
+            attributes = metadata["attributes"]
+            attr_id = [i for i in range(len(attributes)) if attributes[i] == modification.params['attr']][0]
+        hit = -1 if 'hit' not in modification.params else modification.params['hit']
+        insert_tactics = split_tactic(tactic.tactic, tactic_surrounding, attr_id, hit)
+    elif modification.type == 'Merge':
+        if 'index' not in modification.params:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "[Modification]Tactic merge: no tactic index passed."}
+            )
+        tactics = find_tactic(tactic_set, modification.params['index'])
+        if not isinstance(tactics, list):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "[Modification]Tactic merge: multiple tactic indices must be passed."}
+            )
+        insert_tactics = merge_tactic(tactics)
+    elif modification.type == 'Increment' or modification.type == 'Decrement':
+        if 'index' not in modification.params:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "[Modification]Hit: no tactic index passed."}
+            )
+        if 'direction' not in modification.params:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "[Modification]Hit: no direction passed."}
+            )
+        if 'hitCount' not in modification.params:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "[Modification]Hit: no hit count passed."}
+            )
+        tactic_id = find_tactic_id(old_tactics, tactic_set, modification.params['index'])
+        delete_tactics_id.append(tactic_id)
+        tactic = find_tactic(tactic_set, modification.params['index'])
+        if modification.type == 'Increment':
+            insert_tactics = increment_hit(tactic, old_rallies, modification.params['direction'],
+                                           modification.params['hitCount'])
+        else:
+            insert_tactics = decrement_hit(tactic, modification.params['direction'], modification.params['hitCount'])
+
+    elif modification.type == 'Replace' or modification.type == 'Ignore' or modification.type == 'Explore':
+        if 'index' not in modification.params:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "[Modification]Value: no tactic index passed."}
+            )
+        if 'attr' not in modification.params:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "[Modification]Value: no attribute passed."}
+            )
+        if 'hit' not in modification.params:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "[Modification]Value: no hit passed."}
+            )
+        if modification.type == 'Replace' and 'target' not in modification.params:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "[Modification]Value replace: no target value passed."}
+            )
+        tactic_id = find_tactic_id(old_tactics, tactic_set, modification.params['index'])
+        delete_tactics_id.append(tactic_id)
+        tactic = find_tactic(tactic_set, modification.params['index'])
+
+        attributes = metadata["attributes"]
+        attr_id = [i for i in range(len(attributes)) if attributes[i] == modification.params['attr']][0]
+        if modification.type == 'Replace':
+            insert_tactics = modify_value(tactic, old_rallies,
+                                          modification.params['hit'],
+                                          attr_id,
+                                          modification.type,
+                                          modification.params['target'])
+        else:
+            insert_tactics = modify_value(tactic, old_rallies,
+                                          modification.params['hit'],
+                                          attr_id,
+                                          modification.type)
+
+    insert_tactics += [tac.tactic for tac in preference_tactics]
+    if modification.type in global_modification_types:
+        mine_alg_interface.run(global_constrains, insert_tactics=insert_tactics)
+    else:
+        old_store_path = mine_alg_interface.get_store_path(str(mine_alg_interface.get_version() - 1))
+        old_tactics_path = os.path.join(old_store_path, OUTPUT_DIR, PATTERN_FILE)
+        mine_alg_interface.modify_and_run(delete_tactics_id, insert_tactics, old_tactics_path, global_constrains)
+
+
+    rallies = mine_alg_interface.get_rallies()
+    tactics = mine_alg_interface.get_tactics()
+    desc_len = tactics['desc_len']
+
+    tactic_dim_reducer_bin_dir = os.path.join(DATA_DIR, metadata['store_dir'])
+    tactic_dim_reducer = TacticDimensionalityReducer.load(tactic_dim_reducer_bin_dir)
+    if modification.type in global_modification_types:
+        coordinates = tactic_dim_reducer.fit_transform(tactics)
+        tactic_dim_reducer.save(tactic_dim_reducer_bin_dir)
+    else:
+        coordinates = tactic_dim_reducer.fit_transform(tactics)
+
+    tactics = TacticSet.load(tactics, rallies, coordinates, desc_len, preference_tactics)
+    data_manager.update_tactic_set(token, tactics)
+    print(preference_tactics)
+    if modification.type in global_modification_types:
+        data_manager.update_global_constrains(token, global_constrains)
+
+    if modification.type in global_modification_types:
+        data_manager.update_timeline(token, TimeSpot.GlobalModification, mine_alg_interface.get_version() - 1)
+    else:
+        data_manager.update_timeline(token, TimeSpot.LocalModification, mine_alg_interface.get_version() - 1)
+
+    mine_alg_interface.update_version()
+    mine_alg_interface.save(mine_alg_pickle_path)
     return tactics
 
 
@@ -112,7 +333,25 @@ async def cal_tactic(request: Request, modication: Modification):
 @auth_required
 async def cal_tactic(request: Request):
     token = get_token_from_request(request)
-    # TODO: undo
+    time_line = data_manager.get_timeline(token)
+    time_spot = time_line['time_spot']
+    last_mdl_version = time_line['last_version']
+
+    metadata = data_manager.get_metadata(token)
+    mine_alg_pickle_path = os.path.join(DATA_DIR, metadata['store_dir'], metadata['store_dir'] + '.pkl')
+    mine_alg_interface = MineAlgInterface.load(mine_alg_pickle_path,
+                                               params={**metadata, 'token': token})
+    if time_spot == TimeSpot.GlobalModification:
+        mine_alg_interface.set_version(last_mdl_version)
+        data_manager.undo_tactic_set(token)
+        data_manager.undo_global_constrains(token)
+        data_manager.undo_timeline(token)
+    elif time_spot == TimeSpot.LocalModification:
+        mine_alg_interface.set_version(last_mdl_version)
+        data_manager.undo_tactic_set(token)
+        data_manager.undo_timeline(token)
+    else:
+        return False
     return True
 
 
@@ -121,7 +360,14 @@ async def cal_tactic(request: Request):
 @auth_required
 async def fix_tactic(request: Request, tac_id: str, preference: bool):
     token = get_token_from_request(request)
-    # TODO: fix tactic (if prefer) or not (otherwise)
+    tactic_set = data_manager.get_tactic_set(token)
+    tactic = find_tactic(tactic_set, tac_id)
+    if preference and not data_manager.find_preference_tactics(token, tactic):
+        data_manager.add_preference_tactics(token, tactic)
+    elif not preference and data_manager.find_preference_tactics(token, tactic):
+        data_manager.delete_preference_tactics(token, tactic)
+    else:
+        return False
     return True
 
 

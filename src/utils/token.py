@@ -22,6 +22,7 @@ def get_token_from_request(request: Request):
 
 
 def is_valid_token(token):
+    print(tokens, token)
     if token not in tokens:
         return False
     gen_time = tokens[token]
@@ -33,9 +34,9 @@ def auth_required(func):
     async def wrapper(request, *args, **kwargs):
         try:
             token = get_token_from_request(request)
-            assert is_valid_token(token)
+            assert is_valid_token(token), 'Unauthorized token.'
             return await func(request, *args, **kwargs)
-        except:
+        except AssertionError:
             return JSONResponse(
                     status_code=401,
                     content={"detail": "Unauthorized"}
