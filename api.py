@@ -310,7 +310,7 @@ async def cal_tactic(request: Request, modification: Modification):
         coordinates = tactic_dim_reducer.fit_transform(tactics)
         tactic_dim_reducer.save(tactic_dim_reducer_bin_dir)
     else:
-        coordinates = tactic_dim_reducer.fit_transform(tactics)
+        coordinates = tactic_dim_reducer.transform(tactics)
 
     tactics = TacticSet.load(tactics, rallies, coordinates, desc_len, preference_tactics)
     data_manager.update_tactic_set(token, tactics)
