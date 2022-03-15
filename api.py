@@ -158,14 +158,14 @@ async def cal_tactic(request: Request, modification: Modification):
     # TacticSet
     if modification.type == 'LimitIndex':
         global_constrains.set_pattern_window_index_range(
-            modification.params['min'] if 'min' in modification.params else global_constrains.index_min,
-            modification.params['max'] if 'max' in modification.params else global_constrains.index_max)
+            int(modification.params['min']) if 'min' in modification.params else global_constrains.index_min,
+            int(modification.params['max']) if 'max' in modification.params else global_constrains.index_max)
     elif modification.type == 'LimitLength':
         global_constrains.set_pattern_length_range(
-            modification.params['min'] if 'min' in modification.params else global_constrains.length_min,
-            modification.params['max'] if 'max' in modification.params else global_constrains.length_max)
+            int(modification.params['min']) if 'min' in modification.params else global_constrains.length_min,
+            int(modification.params['max']) if 'max' in modification.params else global_constrains.length_max)
         if 'offset' in modification.params:
-            global_constrains.update_pattern_length_range(modification.params['offset'])
+            global_constrains.update_pattern_length_range(int(modification.params['offset']))
     # Attribute
     elif modification.type == 'SetExistence':
         if 'attr' not in modification.params:
@@ -186,7 +186,7 @@ async def cal_tactic(request: Request, modification: Modification):
         # TODO: normalize the importance in [0,10]
         attributes = metadata["attributes"]
         attr_id = [i for i in range(len(attributes)) if attributes[i] == modification.params['attr']][0]
-        global_constrains.set_attr_use(attr_id, modification.params['importance'])
+        global_constrains.set_attr_use(attr_id, int(modification.params['importance']))
     elif modification.type == 'Delete':
         if 'index' not in modification.params:
             return JSONResponse(
@@ -212,7 +212,7 @@ async def cal_tactic(request: Request, modification: Modification):
         if 'attr' in modification.params:
             attributes = metadata["attributes"]
             attr_id = [i for i in range(len(attributes)) if attributes[i] == modification.params['attr']][0]
-        hit = -1 if 'hit' not in modification.params else modification.params['hit']
+        hit = -1 if 'hit' not in modification.params else int(modification.params['hit'])
         insert_tactics = split_tactic(tactic.tactic, tactic_surrounding, attr_id, hit)
     elif modification.type == 'Merge':
         if 'index' not in modification.params:
@@ -247,10 +247,11 @@ async def cal_tactic(request: Request, modification: Modification):
         delete_tactics_id.append(tactic_id)
         tactic = find_tactic(tactic_set, modification.params['index'])
         if modification.type == 'Increment':
-            insert_tactics = increment_hit(tactic, old_rallies, modification.params['direction'],
-                                           modification.params['hitCount'])
+            insert_tactics = increment_hit(tactic, old_rallies, int(modification.params['direction']),
+                                           int(modification.params['hitCount']))
         else:
-            insert_tactics = decrement_hit(tactic, modification.params['direction'], modification.params['hitCount'])
+            insert_tactics = decrement_hit(tactic, int(modification.params['direction']),
+                                           int(modification.params['hitCount']))
 
     elif modification.type == 'Replace' or modification.type == 'Ignore' or modification.type == 'Explore':
         if 'index' not in modification.params:
@@ -281,13 +282,13 @@ async def cal_tactic(request: Request, modification: Modification):
         attr_id = [i for i in range(len(attributes)) if attributes[i] == modification.params['attr']][0]
         if modification.type == 'Replace':
             insert_tactics = modify_value(tactic, old_rallies,
-                                          modification.params['hit'],
+                                          int(modification.params['hit']),
                                           attr_id,
                                           modification.type,
                                           modification.params['target'])
         else:
             insert_tactics = modify_value(tactic, old_rallies,
-                                          modification.params['hit'],
+                                          int(modification.params['hit']),
                                           attr_id,
                                           modification.type)
 
@@ -302,6 +303,7 @@ async def cal_tactic(request: Request, modification: Modification):
 
     rallies = mine_alg_interface.get_rallies()
     tactics = mine_alg_interface.get_tactics()
+
     desc_len = tactics['desc_len']
 
     tactic_dim_reducer_bin_dir = os.path.join(DATA_DIR, metadata['store_dir'])

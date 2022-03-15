@@ -22,7 +22,6 @@ def get_token_from_request(request: Request):
 
 
 def is_valid_token(token):
-    print(tokens, token)
     if token not in tokens:
         return False
     gen_time = tokens[token]

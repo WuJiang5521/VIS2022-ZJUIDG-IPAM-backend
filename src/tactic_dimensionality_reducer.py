@@ -33,6 +33,8 @@ class TacticDimensionalityReducer:
         return mapping
 
     def fit(self, tactics, **kwargs):
+        if len(tactics['patterns']) == 0:
+            return []
         if self.pca is not None:
             warnings.warn("Overwriting exist pca model...")
         self.pca = PCA(n_components=2, random_state=7, **kwargs)
@@ -41,12 +43,16 @@ class TacticDimensionalityReducer:
         self.pca.fit(np.array(mapping))
 
     def transform(self, tactics):
+        if len(tactics['patterns']) == 0:
+            return []
         if self.pca is None:
             raise RuntimeError("No model fitted before transform.")
         mapping = self._get_mapping(tactics)
         return self.pca.transform(np.array(mapping)).tolist()
 
     def fit_transform(self, tactics, **kwargs):
+        if len(tactics['patterns']) == 0:
+            return []
         if self.pca is not None:
             warnings.warn("Overwriting exist pca model...")
         self.pca = PCA(n_components=2, random_state=7, **kwargs)
