@@ -16,6 +16,16 @@ def edit_cost(p1, p2):
     return ans
 
 
+def normalize(coordinate, x_range=0.8, y_range=0.8):
+    normalized_coordinate = np.empty(coordinate.shape)
+    normalized_coordinate[:, 0] = (coordinate[:, 0] - coordinate[:, 0].min()) / \
+                                  (coordinate[:, 0].max() - coordinate[:, 0].min()) * x_range + (1 - x_range) / 2
+    normalized_coordinate[:, 1] = (coordinate[:, 1] - coordinate[:, 1].min()) / \
+                                  (coordinate[:, 1].max() - coordinate[:, 1].min()) * y_range + (1 - y_range) / 2
+    print(normalized_coordinate)
+    return normalized_coordinate
+
+
 class TacticDimensionalityReducer:
     def __init__(self):
         self.pca = None
@@ -48,7 +58,7 @@ class TacticDimensionalityReducer:
         if self.pca is None:
             raise RuntimeError("No model fitted before transform.")
         mapping = self._get_mapping(tactics)
-        return self.pca.transform(np.array(mapping)).tolist()
+        return normalize(self.pca.transform(np.array(mapping))).tolist()
 
     def fit_transform(self, tactics, **kwargs):
         if len(tactics['patterns']) == 0:
@@ -58,7 +68,7 @@ class TacticDimensionalityReducer:
         self.pca = PCA(n_components=2, random_state=7, **kwargs)
         self.base_tactics = tactics
         mapping = self._get_mapping(tactics)
-        return self.pca.fit_transform(np.array(mapping)).tolist()
+        return normalize(self.pca.fit_transform(np.array(mapping))).tolist()
 
     def save(self, out_dir):
         pca_path = os.path.join(out_dir, 'tactic_dim_reducer.bin')
