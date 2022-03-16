@@ -1,3 +1,4 @@
+import pdb
 from typing import List, Dict
 
 from pydantic import BaseModel
@@ -52,9 +53,12 @@ class Rally(BaseModel):
                 tactic_pos_in_rally = tactics["patterns_in_sequences"][rally_id][id_in_rally]["pattern_position"]
 
                 # tactic index
-                if tactic_id not in rally_index:
-                    rally_index[tactic_set.tactics[tactic_id].id] = []
-                rally_index[tactic_set.tactics[tactic_id].id].append(tactic_pos_in_rally)
+                try:
+                    if tactic_id not in rally_index:
+                        rally_index[tactic_set.tactics[tactic_id].id] = []
+                    rally_index[tactic_set.tactics[tactic_id].id].append(tactic_pos_in_rally)
+                except Exception as e:
+                    pdb.set_trace()
 
             rally = cls(id=rally_id,
                         win=(winner == 0),

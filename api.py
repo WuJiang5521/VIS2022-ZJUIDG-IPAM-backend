@@ -1,4 +1,5 @@
 import os.path
+import pdb
 from copy import deepcopy
 from typing import List, Optional
 from fastapi import FastAPI, Request
@@ -89,12 +90,12 @@ async def cal_tactic(request: Request):
     tactics = TacticSet.load(tactics, rallies, coordinates, desc_len, preference_tactics)
     data_manager.update_tactic_set(token, tactics)
     data_manager.update_global_constrains(token, global_constrains)
-    data_manager.update_timeline(token, TimeSpot.InitRun, -1)
-    mine_alg_interface.update_version()
+    data_manager.update_timeline(token, TimeSpot.InitRun, 0)
+    # mine_alg_interface.update_version()
     mine_alg_interface.save(mine_alg_pickle_path)
     return tactics
 
-
+debug_flag = 1
 # 5. 获取回合
 @app.get('/rally/{tac_id}', response_model=List[Rally])
 @auth_required
@@ -105,7 +106,9 @@ async def get_rally(request: Request, tac_id: str):
     mine_alg_pickle_path = os.path.join(DATA_DIR, metadata['store_dir'], metadata['store_dir'] + '.pkl')
     mine_alg_interface = MineAlgInterface.load(mine_alg_pickle_path,
                                                params={**metadata, 'token': token})
-
+    mine_alg_interface.set_new_store_path()
+    # if debug_flag == 0:
+    #     pdb.set_trace()
     tactic_set = data_manager.get_tactic_set(token)
 
     rallies = mine_alg_interface.get_rallies()
@@ -150,6 +153,7 @@ async def cal_tactic(request: Request, modification: Modification):
     old_tactics = mine_alg_interface.get_tactics()
     old_rallies = mine_alg_interface.get_rallies()
     tactic_set = data_manager.get_tactic_set(token)
+    mine_alg_interface.update_version()
     mine_alg_interface.set_new_store_path()
     mine_alg_interface.data_preprocess()
 
@@ -187,6 +191,7 @@ async def cal_tactic(request: Request, modification: Modification):
         attributes = metadata["attributes"]
         attr_id = [i for i in range(len(attributes)) if attributes[i] == modification.params['attr']][0]
         global_constrains.set_attr_use(attr_id, int(modification.params['importance']))
+    # Tactic
     elif modification.type == 'Delete':
         if 'index' not in modification.params:
             return JSONResponse(
@@ -204,9 +209,9 @@ async def cal_tactic(request: Request, modification: Modification):
                 status_code=401,
                 content={"detail": "[Modification]Tactic split: no tactic index passed."}
             )
-        tactic_id = find_tactic_id(old_tactics, tactic_set, modification.params['index'])
+        tactic_id = find_tactic_id(old_tactics, tactic_set, modification.params['index'])[0]
         delete_tactics_id.append(tactic_id)
-        tactic = find_tactic(tactic_set, modification.params['index'])
+        tactic = find_tactic(tactic_set, modification.params['index'])[0]
         tactic_surrounding = tactic.tactic_surrounding
         attr_id = -1
         if 'attr' in modification.params:
@@ -220,13 +225,14 @@ async def cal_tactic(request: Request, modification: Modification):
                 status_code=401,
                 content={"detail": "[Modification]Tactic merge: no tactic index passed."}
             )
-        tactics = find_tactic(tactic_set, modification.params['index'])
+        tactics = find_tactic(tactic_set, modification.params['index'])[0]
         if not isinstance(tactics, list):
             return JSONResponse(
                 status_code=401,
                 content={"detail": "[Modification]Tactic merge: multiple tactic indices must be passed."}
             )
         insert_tactics = merge_tactic(tactics)
+    # Hit
     elif modification.type == 'Increment' or modification.type == 'Decrement':
         if 'index' not in modification.params:
             return JSONResponse(
@@ -243,16 +249,17 @@ async def cal_tactic(request: Request, modification: Modification):
                 status_code=401,
                 content={"detail": "[Modification]Hit: no hit count passed."}
             )
-        tactic_id = find_tactic_id(old_tactics, tactic_set, modification.params['index'])
+        # pdb.set_trace()
+        tactic_id = find_tactic_id(old_tactics, tactic_set, modification.params['index'])[0]
         delete_tactics_id.append(tactic_id)
-        tactic = find_tactic(tactic_set, modification.params['index'])
+        tactic = find_tactic(tactic_set, modification.params['index'])[0]
         if modification.type == 'Increment':
             insert_tactics = increment_hit(tactic, old_rallies, int(modification.params['direction']),
                                            int(modification.params['hitCount']))
         else:
             insert_tactics = decrement_hit(tactic, int(modification.params['direction']),
                                            int(modification.params['hitCount']))
-
+    # Value
     elif modification.type == 'Replace' or modification.type == 'Ignore' or modification.type == 'Explore':
         if 'index' not in modification.params:
             return JSONResponse(
@@ -274,9 +281,9 @@ async def cal_tactic(request: Request, modification: Modification):
                 status_code=401,
                 content={"detail": "[Modification]Value replace: no target value passed."}
             )
-        tactic_id = find_tactic_id(old_tactics, tactic_set, modification.params['index'])
+        tactic_id = find_tactic_id(old_tactics, tactic_set, modification.params['index'])[0]
         delete_tactics_id.append(tactic_id)
-        tactic = find_tactic(tactic_set, modification.params['index'])
+        tactic = find_tactic(tactic_set, modification.params['index'])[0]
 
         attributes = metadata["attributes"]
         attr_id = [i for i in range(len(attributes)) if attributes[i] == modification.params['attr']][0]
@@ -325,7 +332,7 @@ async def cal_tactic(request: Request, modification: Modification):
     else:
         data_manager.update_timeline(token, TimeSpot.LocalModification, mine_alg_interface.get_version() - 1)
 
-    mine_alg_interface.update_version()
+    # mine_alg_interface.update_version()
     mine_alg_interface.save(mine_alg_pickle_path)
     return tactics
 
@@ -334,6 +341,8 @@ async def cal_tactic(request: Request, modification: Modification):
 @app.delete('/modification', response_model=bool)
 @auth_required
 async def cal_tactic(request: Request):
+    global debug_flag
+    debug_flag = 0
     token = get_token_from_request(request)
     time_line = data_manager.get_timeline(token)
     time_spot = time_line['time_spot']
@@ -348,10 +357,12 @@ async def cal_tactic(request: Request):
         data_manager.undo_tactic_set(token)
         data_manager.undo_global_constrains(token)
         data_manager.undo_timeline(token)
+        mine_alg_interface.save(mine_alg_pickle_path)
     elif time_spot == TimeSpot.LocalModification:
         mine_alg_interface.set_version(last_mdl_version)
         data_manager.undo_tactic_set(token)
         data_manager.undo_timeline(token)
+        mine_alg_interface.save(mine_alg_pickle_path)
     else:
         return False
     return True

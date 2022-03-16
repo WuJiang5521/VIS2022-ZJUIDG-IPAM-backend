@@ -232,22 +232,23 @@ def increment_hit(tactic, rallies, direction, hit_count, top_frequent_value=2, f
             for hit_id in rally_hit_range:
                 for attr_id in range(len(rally[hit_id])):
                     if rally[hit_id][attr_id] not in frequent_value_count[hit_id - count_offset][attr_id]:
-                        print(hit_id-count_offset, attr_id, rally[hit_id][attr_id])
                         frequent_value_count[hit_id - count_offset][attr_id][rally[hit_id][attr_id]] = 0
                     frequent_value_count[hit_id - count_offset][attr_id][rally[hit_id][attr_id]] += 1
-    print(frequent_value_count)
 
     for i in range(hit_count):
         for j in range(NR_ATTR):
             frequent_value = frequent_value_count[i][j]
-            frequent_value = {k: v for k, v in sorted(frequent_value.items(), key=lambda item: item[1])[::-1] \
-                              if v > frequency_threshold}
+            frequent_value = {k: v for k, v in sorted(frequent_value.items(), key=lambda item: item[1])[::-1]}
+            # if v > frequency_threshold}
             frequent_value_count[i][j] = frequent_value
     print(frequent_value_count)
 
-    increment_fragments = dfs_increment_hit(frequent_value_count, top_frequent_value, [], 0, 0, [[""] * NR_ATTR] * hit_count)
-    insert_tactics = [frag + deepcopy(tactic.tactic) if direction == 0 else
-                      deepcopy(tactic.tactic) + frag for frag in increment_fragments]
+    increment_fragments = [[list(freq_value.keys())[0] for freq_value in freq_attr] for freq_attr in frequent_value_count]
+    # dfs_increment_hit(frequent_value_count, top_frequent_value, [], 0, 0, [[""] * NR_ATTR] * hit_count)
+    insert_tactics = [increment_fragments + deepcopy(tactic.tactic) if direction == 0 else \
+                          deepcopy(tactic.tactic) + increment_fragments]
+    # [frag + deepcopy(tactic.tactic) if direction == 0 else
+    #               deepcopy(tactic.tactic) + frag for frag in increment_fragments]
     return insert_tactics
 
 
@@ -281,4 +282,3 @@ def modify_value(tactic, rallies, hit_id, attr_id, modification_type, target_val
         insert_tactic = deepcopy(tactic.tactic)
         insert_tactic[hit_id][attr_id] = list(frequent_value.keys())[0]
         return [insert_tactic]
-
