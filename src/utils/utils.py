@@ -108,7 +108,6 @@ def find_tactic(tactic_set, tactics_uuid):
 
 def split_tactic(tactic, tactic_surrounding, attr=-1, hit=-1, top_frequent_value=3):
     insert_tactics = []
-
     hit_range = range(hit, hit + 1) if hit != -1 else range(len(tactic))
     for hit in hit_range:
         attr_range = range(attr, attr + 1) if attr != -1 else range(len(tactic[hit]))
@@ -227,8 +226,9 @@ def increment_hit(tactic, rallies, direction, hit_count, top_frequent_value=2, f
                 rally_hit_range = range(max(0, tactic_index - hit_count), tactic_index)
                 count_offset = tactic_index - hit_count
             else:
-                rally_hit_range = range(tactic_index, min(tactic_index + hit_count, len(rally)))
-                count_offset = tactic_index
+                rally_hit_range = range(tactic_index + len(tactic.tactic),
+                                        min(tactic_index + len(tactic.tactic) + hit_count, len(rally)))
+                count_offset = tactic_index + len(tactic.tactic)
             for hit_id in rally_hit_range:
                 for attr_id in range(len(rally[hit_id])):
                     if rally[hit_id][attr_id] not in frequent_value_count[hit_id - count_offset][attr_id]:
@@ -243,7 +243,8 @@ def increment_hit(tactic, rallies, direction, hit_count, top_frequent_value=2, f
             frequent_value_count[i][j] = frequent_value
     print(frequent_value_count)
 
-    increment_fragments = [[list(freq_value.keys())[0] for freq_value in freq_attr] for freq_attr in frequent_value_count]
+    increment_fragments = [[list(freq_value.keys())[0] if i == 0 else "" for i, freq_value in enumerate(freq_attr)]
+                           for freq_attr in frequent_value_count]
     # dfs_increment_hit(frequent_value_count, top_frequent_value, [], 0, 0, [[""] * NR_ATTR] * hit_count)
     insert_tactics = [increment_fragments + deepcopy(tactic.tactic) if direction == 0 else \
                           deepcopy(tactic.tactic) + increment_fragments]
