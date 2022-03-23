@@ -320,13 +320,14 @@ async def cal_tactic(request: Request, modification: Modification):
         tactic_dim_reducer.save(tactic_dim_reducer_bin_dir)
     else:
         coordinates = tactic_dim_reducer.transform(tactics)
-
-    tactics = TacticSet.load(tactics, rallies, coordinates, desc_len, preference_tactics)
+    if modification.type in global_modification_types:
+        tactics = TacticSet.load(tactics, rallies, coordinates, desc_len, preference_tactics)
+    else:
+        tactics = TacticSet.load(tactics, rallies, coordinates, desc_len, preference_tactics,
+                                 last_tactics=tactic_set.tactics)
     data_manager.update_tactic_set(token, tactics)
-    print(preference_tactics)
     if modification.type in global_modification_types:
         data_manager.update_global_constrains(token, global_constrains)
-
     if modification.type in global_modification_types:
         data_manager.update_timeline(token, TimeSpot.GlobalModification, mine_alg_interface.get_version() - 1)
     else:

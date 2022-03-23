@@ -50,7 +50,9 @@ class TacticSet(BaseModel):
         TacticSet.surrounding_step = surrounding_step
 
     @classmethod
-    def load(cls, tactics, rallies, coordinates, desc_len, preference_tactics, nr_attr=NR_ATTR):
+    def load(cls, tactics, rallies, coordinates, desc_len, preference_tactics, last_tactics=None, nr_attr=NR_ATTR):
+        if last_tactics is None:
+            last_tactics = []
         _tactics = []
         tactics_in_rallies = tactics["patterns_in_sequences"]
         tactics_hits = tactics["patterns"]
@@ -109,7 +111,8 @@ class TacticSet(BaseModel):
             win_usage_count_for_tactics = [c + _c for c, _c in zip(win_usage_count_for_tactics, _win_usage_count_for_tactics)]
 
         for tactic_id in range(len(tactics_hits)):
-            find_tactic_prefered = [tac for tac in preference_tactics if tac.tactic == tactics_hits[tactic_id]["hits"]]
+            tactics_pool = last_tactics + preference_tactics
+            find_tactic_prefered = [tac for tac in tactics_pool if tac.tactic == tactics_hits[tactic_id]["hits"]]
             if len(find_tactic_prefered) == 0:
                 _tactics.append(Tactic(id=str(uuid4()), user=0,
                                        tactic=tactics_hits[tactic_id]["hits"],
