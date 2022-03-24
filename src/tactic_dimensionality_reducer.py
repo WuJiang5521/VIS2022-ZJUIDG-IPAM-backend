@@ -1,4 +1,5 @@
 import os
+import pickle
 import warnings
 import numpy as np
 
@@ -18,10 +19,9 @@ def edit_cost(p1, p2):
 
 def normalize(coordinate, x_range=0.8, y_range=0.8):
     normalized_coordinate = np.empty(coordinate.shape)
-    normalized_coordinate[:, 0] = (coordinate[:, 0] - coordinate[:, 0].min()) / \
-                                  (coordinate[:, 0].max() - coordinate[:, 0].min()) * x_range + (1 - x_range) / 2
-    normalized_coordinate[:, 1] = (coordinate[:, 1] - coordinate[:, 1].min()) / \
-                                  (coordinate[:, 1].max() - coordinate[:, 1].min()) * y_range + (1 - y_range) / 2
+    for i in range(coordinate.shape[1]):
+        normalized_coordinate[:, i] = (coordinate[:, i] - coordinate[:, i].min()) / \
+                                      (coordinate[:, i].max() - coordinate[:, i].min()) * x_range + (1 - x_range) / 2
     print(normalized_coordinate)
     return normalized_coordinate
 
@@ -29,6 +29,7 @@ def normalize(coordinate, x_range=0.8, y_range=0.8):
 class TacticDimensionalityReducer:
     def __init__(self):
         self.pca = None
+        self.pca_1 = None
         self.base_tactics = None
 
     def _get_mapping(self, tactics):
@@ -48,9 +49,11 @@ class TacticDimensionalityReducer:
         if self.pca is not None:
             warnings.warn("Overwriting exist pca model...")
         self.pca = PCA(n_components=2, random_state=7, **kwargs)
+        self.pca_1 = PCA(n_components=1, random_state=7, **kwargs)
         self.base_tactics = tactics
         mapping = self._get_mapping(tactics)
         self.pca.fit(np.array(mapping))
+        self.pca_1.fit(np.array(mapping))
 
     def transform(self, tactics):
         if len(tactics['patterns']) == 0:
@@ -58,7 +61,9 @@ class TacticDimensionalityReducer:
         if self.pca is None:
             raise RuntimeError("No model fitted before transform.")
         mapping = self._get_mapping(tactics)
-        return normalize(self.pca.transform(np.array(mapping))).tolist()
+        coord2 = normalize(self.pca.transform(np.array(mapping)))
+        coord1 = normalize(self.pca_1.transform(np.array(mapping)))
+        return np.concatenate([coord2, coord1], axis=1).tolist()
 
     def fit_transform(self, tactics, **kwargs):
         if len(tactics['patterns']) == 0:
@@ -66,25 +71,36 @@ class TacticDimensionalityReducer:
         if self.pca is not None:
             warnings.warn("Overwriting exist pca model...")
         self.pca = PCA(n_components=2, random_state=7, **kwargs)
+        self.pca_1 = PCA(n_components=1, random_state=7, **kwargs)
         self.base_tactics = tactics
         mapping = self._get_mapping(tactics)
-        return normalize(self.pca.fit_transform(np.array(mapping))).tolist()
+        coord2 = normalize(self.pca.fit_transform(np.array(mapping)))
+        coord1 = normalize(self.pca_1.fit_transform(np.array(mapping)))
+        return np.concatenate([coord2, coord1], axis=1).tolist()
 
     def save(self, out_dir):
-        pca_path = os.path.join(out_dir, 'tactic_dim_reducer.bin')
-        base_tactics_path = os.path.join(out_dir, 'tactic_dim_reducer_base_tactics.bin')
-        if not os.path.isfile(pca_path) and self.pca is not None:
-            print('no standard scaler found. Saving it...')
-            dump(self.pca, pca_path, compress=True)
-            dump(self.base_tactics, base_tactics_path, compress=True)
+        save_path = os.path.join(out_dir, 'tactic_dim_reducer.pkl')
+
+        model_data = {
+            'pca_2': self.pca,
+            'pca_1': self.pca_1,
+            'base_tactics': self.base_tactics
+        }
+        # base_tactics_path = os.path.join(out_dir, 'tactic_dim_reducer_base_tactics.bin')
+        print('Saving PCA...')
+        with open(save_path, 'wb') as f:
+            pickle.dump(model_data, f)
 
     @classmethod
     def load(cls, out_dir):
-        pca_path = os.path.join(out_dir, 'tactic_dim_reducer.bin')
-        base_tactics_path = os.path.join(out_dir, 'tactic_dim_reducer_base_tactics.bin')
+        save_path = os.path.join(out_dir, 'tactic_dim_reducer.pkl')
+        # base_tactics_path = os.path.join(out_dir, 'tactic_dim_reducer_base_tactics.bin')
         model = cls()
-        if os.path.isfile(pca_path):
-            model.pca = load(pca_path)
-        if os.path.isfile(base_tactics_path):
-            model.base_tactics = load(base_tactics_path)
+
+        if os.path.isfile(save_path):
+            with open(save_path, 'rb') as file:
+                model_data = pickle.load(file)
+            model.pca = model_data['pca_2']
+            model.base_tactics = model_data['base_tactics']
+            model.pca_1 = model_data['pca_1']
         return model
