@@ -225,12 +225,14 @@ async def cal_tactic(request: Request, modification: Modification):
                 status_code=401,
                 content={"detail": "[Modification]Tactic merge: no tactic index passed."}
             )
-        tactics = find_tactic(tactic_set, modification.params['index'])[0]
+        tactic_ids = find_tactic_id(old_tactics, tactic_set, modification.params['index'])
+        tactics = find_tactic(tactic_set, modification.params['index'])
         if not isinstance(tactics, list):
             return JSONResponse(
                 status_code=401,
                 content={"detail": "[Modification]Tactic merge: multiple tactic indices must be passed."}
             )
+        delete_tactics_id += tactic_ids
         insert_tactics = merge_tactic(tactics)
     # Hit
     elif modification.type == 'Increment' or modification.type == 'Decrement':

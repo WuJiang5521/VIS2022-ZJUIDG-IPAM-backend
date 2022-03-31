@@ -124,29 +124,42 @@ def split_tactic(tactic, tactic_surrounding, attr=-1, hit=-1, top_frequent_value
 
 def check_event_overlap(event1, event2):
     for i in range(len(event1)):
-        if event1[i] != "" and event2[i] != "":
+        if event1[i] == event2[i] and event1[i] != "":
             return True
     return False
 
 
 def check_overlap(tactic1, tactic2, offset):
     if offset == 0 or offset == len(tactic1) + len(tactic2):
-        return False
+        return -1, -1
     start_pos_a = max(0, len(tactic2) - offset)
     start_pos_b = max(0, offset - len(tactic2))
     if start_pos_b == 0:
         new_length = max(start_pos_a + len(tactic1), len(tactic2))
     else:
         new_length = max(start_pos_b + len(tactic2), len(tactic1))
+    begin_overlap = [-1]
+    len_overlap = [0]
     for pos in range(new_length):
         if pos >= start_pos_a and pos >= start_pos_b and pos - start_pos_a < len(tactic1) and pos - start_pos_b < len(
                 tactic2):
             if check_event_overlap(tactic1[pos - start_pos_a], tactic2[pos - start_pos_b]):
-                return True
-    return False
+                if begin_overlap[-1] == -1:
+                    begin_overlap[-1] = pos
+                len_overlap[-1] += 1
+            else:
+                begin_overlap.append(-1)
+                len_overlap.append(0)
+    max_begin_overlap = -1
+    max_len_overlap = 0
+    for i, l in enumerate(len_overlap):
+        if l > max_len_overlap:
+            max_len_overlap = l
+            max_begin_overlap = begin_overlap[i]
+    return max_begin_overlap, max_len_overlap
 
 
-def build_tactic(a, b, offset):
+def build_tactic(a, b, offset, begin_overlap, len_overlap):
     tactic = []
     start_pos_a = max(0, len(b) - offset)
     start_pos_b = max(0, offset - len(b))
@@ -154,33 +167,39 @@ def build_tactic(a, b, offset):
         new_length = max(start_pos_a + len(a), len(b))
     else:
         new_length = max(start_pos_b + len(b), len(a))
-    for pos in range(new_length):
+    for pos in range(begin_overlap, begin_overlap + len_overlap):
         event = ["" for _ in range(NR_ATTR)]
-        if start_pos_a <= pos < len(a) + start_pos_a:
-            for i in range(NR_ATTR):
+        # if start_pos_a <= pos < len(a) + start_pos_a:
+        #     for i in range(NR_ATTR):
+        #         event[i] = a[pos - start_pos_a][i]
+        # if start_pos_b <= pos < len(b) + start_pos_b:
+        #     for i in range(NR_ATTR):
+        #         event[i] = b[pos - start_pos_b][i]
+        for i in range(NR_ATTR):
+            if a[pos - start_pos_a][i] == b[pos - start_pos_b][i]:
                 event[i] = a[pos - start_pos_a][i]
-        if start_pos_b <= pos < len(b) + start_pos_b:
-            for i in range(NR_ATTR):
-                event[i] = b[pos - start_pos_b][i]
         tactic.append(event)
     return tactic
 
 
 def dfs_merge_tactics(cur_tactic, tactics, new_tactics):
     if len(tactics) == 0:
-        if cur_tactic not in new_tactics:
-            new_tactics.append(cur_tactic)
+        if len(cur_tactic) > len(new_tactics):
+            new_tactics = cur_tactic
+        # if cur_tactic not in new_tactics:
+        #     new_tactics.append(cur_tactic)
         return new_tactics
     for offset in range(0, len(cur_tactic) + len(tactics[0].tactic) + 1):
-        if not check_overlap(cur_tactic, tactics[0].tactic, offset):
-            new_tactic = build_tactic(cur_tactic, tactics[0].tactic, offset)
-            dfs_merge_tactics(new_tactic, tactics[1:], new_tactics)
+        begin_overlap, len_overlap = check_overlap(cur_tactic, tactics[0].tactic, offset)
+        if len_overlap > 0:
+            new_tactic = build_tactic(cur_tactic, tactics[0].tactic, offset, begin_overlap, len_overlap)
+            new_tactics = dfs_merge_tactics(new_tactic, tactics[1:], new_tactics)
     return new_tactics
 
 
 def merge_tactic(tactics):
     insert_tactics = dfs_merge_tactics(tactics[0].tactic, tactics[1:], [])
-    return insert_tactics
+    return [insert_tactics]
 
 
 def dfs_increment_hit(frequent_count, top_frequent_value, new_fragments, hit_id, attr_id, cur_fragment):
